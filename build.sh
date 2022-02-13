@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-docker build -t hook .
+docker build -t fabiosvm/hook .
