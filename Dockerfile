@@ -15,12 +15,12 @@ RUN apk update && \
     apk upgrade && \
     apk add --no-cache bash git openssh cmake make gcc libc-dev linux-headers \
       sqlite-dev curl-dev hiredis-dev && \ 
-    git clone https://github.com/fabiosvm/hook-lang.git && \
-    mv hook-lang hook && \
-    cd hook && \
-    cmake -B build -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build build && \
-    ./run-tests.sh
+    git clone https://github.com/fabiosvm/hook-lang.git hook-build && \
+    cd ./hook-build && \
+    ./scripts/build-and-install.sh \
+      "Release" "with-no-extensions" "/usr/local/hook" && \
+    ./scripts/run-tests.sh && \
+    rm -rf ./hook-build
 
 ENV HOOK_HOME=/usr/local/hook
 ENV PATH=$HOOK_HOME/bin:$PATH
