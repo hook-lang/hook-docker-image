@@ -2,23 +2,34 @@
 
 # This script runs a Docker container.
 #
-# It takes a Dockerfile or its extension on the 1st argument.
-# And optionally it takes a image name as 2nd argument and a 
-# container name on the 3nd argument if you want to override 
-# the script choice.
+# It takes a multi stage Dockerfile or its extension on the 1st argument 
+# and the target stage as the 2nd argument. Optionally it can have a
+# container name as 3nd argument if you want to override the script 
+# name choice.
 #
 # If the extension is provided the script will search for a Dockerfile 
 # with that extension. It assumes that the extension will be after a dot
 # like Dockerfile.<extension>.
 #
 # We suggest using a descriptive extension like:
-#   <system>-<project>-<deploy_environment>.
+#   <system>-<project>
+#   alpine-hook
 #
-# Usage: ./docker_build.sh <Dockerfile|extension> [image_name]
-#        ./docker_build.sh Dockerfile.alpine-hook-run
-#        ./docker_build.sh alpine-hook-run
-#        ./docker_build.sh alpine-hook-run test-alpine
-
+# The stage refers to the build type like:
+#   development
+#   run
+#
+# The extension and stage are used to form the image and container names.
+# Examples:
+#   <system>-<project>-<stage>
+#   alpine-hook-development
+#   alpine-hook-run
+#
+# Usage: ./docker_run.sh <Dockerfile|extension> [image_name]
+#        ./docker_run.sh Dockerfile.alpine-hook run
+#        ./docker_run.sh alpine-hook run
+#        ./docker_run.sh alpine-hook run test-bug-fix
+#
 if ! docker info &>/dev/null; then
     echo "ERROR: You must have the Docker installed and permission to run it."
     exit 1
@@ -32,8 +43,9 @@ else
 fi
 
 ARGUMENT="$1"
-IMAGE_NAME="$2"
-CONTAINER_NAME="$3"
+STAGE="$2"
+IMAGE_NAME="$3"
+CONTAINER_NAME="$4"
 
 DOCKER_FILE="$ARGUMENT"
 
@@ -63,7 +75,7 @@ fi
 
 
 if [ -z "$IMAGE_NAME" ]; then
-    IMAGE_NAME="$EXTENSION"
+    IMAGE_NAME="$EXTENSION-$STAGE"
     echo "
 INFO: Using '$IMAGE_NAME' as the Docker image name.
     You can specify a different name at (in order of priority):
@@ -88,12 +100,17 @@ if ! docker image inspect "$IMAGE_NAME" &>/dev/null; then
     exit 1
 fi
 
-# if a docker container with the name CONTAINER_NAME already exists warn the user
 if docker container inspect "$CONTAINER_NAME" &>/dev/null; then
     DOCKER_RM_OUTPUT="$(docker rm --force "$CONTAINER_NAME")"
     echo "WARNING: Removing the existing docker container '$DOCKER_RM_OUTPUT'"
 fi
 
-WORKSPACE_DIR="$(pwd)/hook-development"
-chmod 775 "$WORKSPACE_DIR"
-docker run --name "$CONTAINER_NAME" --volume "$WORKSPACE_DIR":/hook-development:rw --tty --interactive "$IMAGE_NAME" bash
+# TODO Make the WORKSPACE_DIR and VOLUME configurable, use the .env file or arguments.
+if [ "$STAGE" == "development" ]; then
+    WORKSPACE_DIR="$(pwd)/hook-development"
+    VOLUME="/hook-development"
+    chmod 775 "$WORKSPACE_DIR"
+    echo "INFO: Mounting the host folder '$WORKSPACE_DIR' as the volume '$VOLUME' on the container."
+fi
+
+docker run --name "$CONTAINER_NAME" --volume "$WORKSPACE_DIR":"$VOLUME":rw --tty --interactive "$IMAGE_NAME" bash

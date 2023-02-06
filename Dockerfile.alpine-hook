@@ -1,0 +1,112 @@
+
+# Hook Multi Stage Docker Images using the latest Alpine Linux
+
+
+# Base image
+#   It creates a base for all others Hook Docker images.
+# It installs the the necessary dependencies, and tools for building and
+# testing the Hook language.
+#
+FROM alpine:latest as base
+
+LABEL maintainer="Fábio de Souza Villaça Medeiros <fabiosvm@outlook.com>"
+LABEL description="Hook Development Docker Image using Alpine Linux"
+LABEL version="0.1.0"
+
+ENV USER hook
+ENV HOME /home/hook
+
+WORKDIR $HOME
+
+RUN \
+  apk update; \
+  apk add --no-cache \
+  bash \
+  cmake \
+  curl-dev \
+  gcc \
+  git \
+  hiredis-dev \
+  libc-dev \
+  linux-headers \
+  make \
+  openssh \
+  # TODO Use doas instead of sudo. I counldn't make doas to work.
+  sudo \
+  sqlite-dev; \
+  echo "%wheel ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers; \
+  echo "source /etc/bash/bashrc" >> "${HOME}/.bashrc"; \
+  adduser -D hook; \
+  addgroup $USER wheel; \
+  addgroup $USER adm; \
+  addgroup $USER users; \
+  echo "$USER:$USER" | chpasswd; \
+  chown -R $USER:users $HOME; \ 
+  chmod -R u+wr,g+rw $HOME;
+
+
+# Development image
+#   It creates a development workspace for the Hook language project, 
+# equipped with the necessary scripts, dependencies, and tools for 
+# building and testing the language. It sets the environment variables
+# for HOOK_HOME and PATH, with the HOOK_WORKSPACE set to the 
+# "$HOME/hook-development" volume. Convenient scripts are available in
+# the user's home directory ($HOME). By default, the image will run the
+# "hook -v" command.
+#
+# As this image only clones the repository when the container is started,
+# it is not necessary to rebuild the image every time the repository is
+# updated. The image can be rebuilt only when the dependencies change.
+#
+FROM base as development
+WORKDIR $HOME
+# VOLUME doesn't change its ownership and permissions during the
+# image build phase. So we use 'sudo' in scripts during the 
+# container execution of .bashrc and .bashrc.d to change it.
+VOLUME "$HOME/hook-development"
+COPY ./development-home $HOME
+RUN \
+  chown -R $USER:users $HOME; \
+  chmod -R u+rw,g+rw $HOME; \
+  chmod +x $HOME/bin/*; \
+  echo "for file in \$HOME/.bashrc.d/*; do source \$file; done" \
+  >> $HOME/.bashrc; \
+  chmod u+x,g+x $HOME/.bashrc.d/*;
+ENV HOOK_HOME "/usr/local/hook"
+ENV PATH "$HOOK_HOME/bin:/home/hook/bin:$PATH"
+ENV HOOK_WORKSPACE $HOME/hook-development
+USER $USER:users
+
+# Development image
+#   It creates a container for running the Hook language examples.
+#
+FROM base as run
+ENV HOME_EXAMPLES $HOME/hook-examples
+ENV HOOK_HOME "/usr/local/hook"  
+ENV PATH "$HOOK_HOME/bin:/home/hook/bin:$PATH"
+WORKDIR $HOME_EXAMPLES
+RUN \
+  cd /tmp; \
+  git clone https://github.com/fabiosvm/hook-lang.git \
+  hook-build; \
+  cd /tmp/hook-build; \
+  ./scripts/build-and-install.sh "Release" \
+  "with-no-extension" "/usr/local/hook"; \
+  ./scripts/test.sh; \
+  test ! -d "$HOME_EXAMPLES" && \
+  mkdir "$HOME_EXAMPLES" 2>/dev/null; \
+  cp -r "$HOOK_HOME/examples/*" "$HOME_EXAMPLES"; \
+  chmod -R u+rw,g+rw "$HOME_EXAMPLES"; \
+  chown -R $USER:users "$HOME_EXAMPLES"; \
+  rm -rf /tmp/hook-build; \
+  apk del --purge \
+  cmake \
+  curl-dev \
+  gcc \
+  git \
+  hiredis-dev \
+  libc-dev \
+  linux-headers \
+  make \
+  sqlite-dev;
+USER $USER:users
