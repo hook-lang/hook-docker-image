@@ -23,18 +23,28 @@ And the Run image has a Hook release installed so you can try it out and have fu
 
 Use the script 'docker_build.sh' to build the Hook images in the Dockerfile.alpine-hook.
 
-Usage: ./docker_build.sh <Dockerfile|extension> [image_name]
+Usage: 
+
+       ./docker_build.sh <Dockerfile|extension> [image_name]
+
        ./docker_build.sh Dockerfile.alpine-hook run
+       
        ./docker_build.sh alpine-hook run
+       
        ./docker_build.sh alpine-hook development test-bug-fix
 
 ## Running a container
 
 Use the script 'docker_run.sh' to run a Hook image.
 
-Usage: ./docker_run.sh <Dockerfile|extension> [image_name]
+Usage: 
+
+       ./docker_run.sh <Dockerfile|extension> [image_name]
+
        ./docker_run.sh Dockerfile.alpine-hook run
+       
        ./docker_run.sh alpine-hook run
+       
        ./docker_run.sh alpine-hook run test-bug-fix
 
 ## License
