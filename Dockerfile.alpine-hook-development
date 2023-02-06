@@ -1,0 +1,40 @@
+
+# Hook Development Docker Image using the latest Alpine Linux
+#
+#   This Dockerfile creates a development workspace image for the Hook 
+# language, equipped with the necessary scripts, dependencies, and tools 
+# for building and testing the language. It sets the environment variables
+# for HOOK_HOME and PATH, with the working directory set to the 
+# "$HOME/hook-development" volume. Convenient scripts are available in the user's home
+# directory ($HOME). By default, the image will run the "hook -v" command.
+
+FROM alpine-hook-base:latest
+
+LABEL maintainer="Fábio de Souza Villaça Medeiros <fabiosvm@outlook.com>"
+LABEL description="Hook Development Docker Image using Alpine Linux"
+LABEL version="0.1.0"
+
+USER root:root
+
+VOLUME [ "/home/hook/hook-development" ]
+
+WORKDIR /home/hook
+
+COPY ./home-hook /home/hook
+
+RUN chown -R hook:users /home/hook
+RUN chmod -R u+rw,g+rw /home/hook
+RUN chmod +x /home/hook/bin/*
+RUN chmod -x /home/hook/.bashrc.d/111-greetings.sh 
+RUN /home/hook/bin/setup_bashrc.sh
+# The setup_dev_workspace.sh script will be executed by the
+# .bashrc and after it is executed, it will remove the link to itself.
+RUN ln -s /home/hook/bin/setup_dev_workspace.sh \
+  /home/hook/.bashrc.d/000-setup_dev_workspace.sh
+RUN chmod +x /home/hook/.bashrc.d/*
+# Disabling 111-greetings.sh script, as it will be activated latter 
+# by setup_dev_workspace.sh script.
+
+USER hook:users
+
+ENV HOOK_WORKSPACE=/home/hook/hook-development
